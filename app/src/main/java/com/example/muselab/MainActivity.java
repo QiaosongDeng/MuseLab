@@ -1,5 +1,39 @@
 package com.example.muselab;
 
+
+import android.os.Bundle;
+import android.view.MenuItem;
+import android.widget.Toast;
+import android.content.Intent;
+import android.Manifest;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
+import android.content.pm.PackageManager;
+import android.os.Bundle;
+import android.os.Environment;
+import android.os.Looper;
+import android.os.Handler;
+import android.util.Log;
+import android.view.View;
+import android.view.View.OnClickListener;
+import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.Spinner;
+import android.widget.TextView;
+import android.bluetooth.BluetoothAdapter;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.ActionBarDrawerToggle;
+import androidx.appcompat.widget.Toolbar;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.view.GravityCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import androidx.appcompat.app.AppCompatActivity;
+
+import com.google.android.material.navigation.NavigationView;
+
 import java.io.File;
 import java.lang.ref.WeakReference;
 import java.util.List;
@@ -30,30 +64,9 @@ import com.choosemuse.libmuse.MuseVersion;
 import com.choosemuse.libmuse.Result;
 import com.choosemuse.libmuse.ResultLevel;
 
-import android.Manifest;
-import android.app.Activity;
-import android.app.AlertDialog;
-import android.content.DialogInterface;
-import android.content.pm.PackageManager;
-import android.os.Bundle;
-import android.os.Environment;
-import android.os.Looper;
-import android.os.Handler;
-import android.util.Log;
-import android.view.View;
-import android.view.View.OnClickListener;
-import android.widget.ArrayAdapter;
-import android.widget.Button;
-import android.widget.Spinner;
-import android.widget.TextView;
-import android.bluetooth.BluetoothAdapter;
+public class MainActivity extends AppCompatActivity implements OnClickListener,NavigationView.OnNavigationItemSelectedListener {
 
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-import androidx.appcompat.app.AppCompatActivity;
-
-
-public class MainActivity extends Activity implements OnClickListener {
+    private DrawerLayout drawer;
 
     /**
      * Tag used for logging purposes.
@@ -154,6 +167,8 @@ public class MainActivity extends Activity implements OnClickListener {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        checkPermissions();
+
         // We need to set the context on MuseManagerAndroid before we can do anything.
         // This must come before other LibMuse API calls as it also loads the library.
         manager = MuseManagerAndroid.getInstance();
@@ -187,6 +202,20 @@ public class MainActivity extends Activity implements OnClickListener {
         // Start our asynchronous updates of the UI.
         handler = new Handler(getMainLooper());
         handler.post(tickUi);
+
+        //Modified
+        Toolbar toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+
+        drawer = findViewById(R.id.drawer_layout);
+        NavigationView navigationView = findViewById(R.id.navigation_view);
+        navigationView.setNavigationItemSelectedListener(this);
+
+        ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(this,drawer,toolbar,
+                R.string.navigation_drawer_open,R.string.navigation_drawer_close);
+
+        drawer.addDrawerListener(toggle);
+        toggle.syncState();
     }
 
     protected void onPause() {
@@ -210,6 +239,12 @@ public class MainActivity extends Activity implements OnClickListener {
             // first to make sure startListening will clear the list of headbands and start fresh.
             manager.stopListening();
             manager.startListening();
+
+            if (isBluetoothEnabled()==true){
+                Toast.makeText(MainActivity.this,"Bluetooth is Enabled.",Toast.LENGTH_SHORT).show();
+            }else {
+                Toast.makeText(MainActivity.this,"Bluetooth gets wrong!",Toast.LENGTH_SHORT).show();
+            };
 
         } else if (v.getId() == R.id.connect) {
 
@@ -696,6 +731,66 @@ public class MainActivity extends Activity implements OnClickListener {
         @Override
         public void receiveMuseArtifactPacket(final MuseArtifactPacket p, final Muse muse) {
             activityRef.get().receiveMuseArtifactPacket(p, muse);
+        }
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (drawer.isDrawerOpen(GravityCompat.START)){
+            drawer.closeDrawer(GravityCompat.START);
+        }else {
+            super.onBackPressed();
+        }
+    }
+
+    @Override
+    public boolean onNavigationItemSelected(@NonNull MenuItem item) {
+        int id = item.getItemId();
+        if (id == R.id.nav_muse){
+            Toast.makeText(MainActivity.this,"Muse",Toast.LENGTH_SHORT).show();
+        } else if (id == R.id.nav_eog) {
+            Toast.makeText(MainActivity.this,"EOG",Toast.LENGTH_SHORT).show();
+            startActivity(new Intent(MainActivity.this, EOGActivity.class));
+        }
+        drawer.closeDrawer(GravityCompat.START);
+        return false;
+    }
+
+    private static String[] PERMISSIONS_STORAGE = {
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_LOCATION_EXTRA_COMMANDS,
+            Manifest.permission.BLUETOOTH_SCAN,
+            Manifest.permission.BLUETOOTH_CONNECT,
+            Manifest.permission.BLUETOOTH_PRIVILEGED
+    };
+    private static String[] PERMISSIONS_LOCATION = {
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_LOCATION_EXTRA_COMMANDS,
+            Manifest.permission.BLUETOOTH_SCAN,
+            Manifest.permission.BLUETOOTH_CONNECT,
+            Manifest.permission.BLUETOOTH_PRIVILEGED
+    };
+
+    private void checkPermissions(){
+        int permission1 = ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        int permission2 = ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN);
+        if (permission1 != PackageManager.PERMISSION_GRANTED) {
+            // We don't have permission so prompt the user
+            ActivityCompat.requestPermissions(
+                    this,
+                    PERMISSIONS_STORAGE,
+                    1
+            );
+        } else if (permission2 != PackageManager.PERMISSION_GRANTED){
+            ActivityCompat.requestPermissions(
+                    this,
+                    PERMISSIONS_LOCATION,
+                    1
+            );
         }
     }
 }
